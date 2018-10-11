@@ -45,8 +45,8 @@ add_p_val<-function(df, total, correct = 9.41) {
 }
 
 
-igraph_from_seqs<-function(seqs, max_errs = 1) {
-  graph<- igraph::graph.empty(n = length(seqs), directed=F)
+igraph_from_seqs <- function(seqs, max_errs = 1) {
+  graph <- igraph::graph.empty(n = length(seqs), directed = F)
   tmp <- stringdist::stringdistmatrix(seqs, seqs, method = "hamming")
   graph <- igraph::add.edges(graph, t(which(tmp <= max_errs, arr.ind = T)))
   graph <- igraph::simplify(graph)
@@ -146,7 +146,7 @@ compute_pgen_rda_folder<-function(folder, prefix = "", iter = 50, cores = 8,
 
   for (i in 1:nrow(VJlist)) {
     #test if present
-    if (VJlist[i,1] %in% segments$TRBV$V.alleles & 
+    if (VJlist[i,1] %in% segments$TRBV$V.alleles &&
         VJlist[i,2] %in% segments$TRBJ$J.alleles) {
       o_fn <- file.path(folder, 
                         paste0("res_", prefix, fnames_s[i], ".rda"))
@@ -167,6 +167,9 @@ compute_pgen_rda_folder<-function(folder, prefix = "", iter = 50, cores = 8,
       rm(res)
     }
   }
+  # return amount of files (i.e. unique V-J combinations for which clusters are
+  # found) are generated
+  return(length(list.files(folder, pattern = "res_.*.rda")))
 }
 
 
@@ -215,7 +218,13 @@ ALICE_pipeline <- function(DTlist, folder = "", cores = 8, iter = 50,
   # generate .rda files for CDR3aa gen prob estimation for each VJ
   make_rda_folder(DTlist, folder, Read_thres = Read_thres)
   # estimate CDR3aa gen prob for each sequence and save to separate res_ files
-  compute_pgen_rda_folder(folder, cores = cores, nrec = nrec, iter = iter)
+  # return the amount of files generated
+  file_no <- 
+    compute_pgen_rda_folder(folder, cores = cores, nrec = nrec, iter = iter)
+  if (is.null(file_no) || file_no == 0) {
+    warning(sprintf('No clusters found in %s', folder))
+    return(NULL)
+  }
   # parse res_ files
   results <- parse_rda_folder(DTlist, folder, volume = cores * iter * nrec / 3,
                               Read_thres = Read_thres)
