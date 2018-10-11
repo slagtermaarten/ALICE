@@ -100,13 +100,18 @@ convert_comblist_to_df <- function(comblist) {
 #'
 #'
 make_rda_folder <- function(DTlist, folder = "", prefix = "",
-                            Read_thres = 0, VJDT = VDJT) {
+                            Read_thres = 0, VJDT = VDJT, overwrite = F) {
   dir.create(folder, showWarnings = FALSE, recursive = T)
   VJDT <- as.data.table(VJDT)
   VJDT[, bestVGene := V]
   VJDT[, bestJGene := J]
 
   for (i in 1:nrow(VJDT)) {
+    fname <- file.path(folder, 
+                       paste0(prefix, VJDT[i,as.character(bestVGene)],
+                              "_", VJDT[i, as.character(bestJGene)], ".rda"))
+    if (file.exists(fname) && !overwrite) next
+
     all_short_i <- lapply(DTlist, function(x)
       x[bestVGene == VJDT$bestVGene[i] & bestJGene == VJDT$bestJGene[i] &
         Read.count > Read_thres])
@@ -116,10 +121,8 @@ make_rda_folder <- function(DTlist, folder = "", prefix = "",
               function(x) { if(nrow(x)>0) x[,CDR3.amino.acid.sequence] }))),
               all_other_variants_one_mismatch))
     shrep <- data.frame(CDR3.amino.acid.sequence = unique(hugel))
-    fname <- paste0(prefix, VJDT[i,as.character(bestVGene)],
-                    "_", VJDT[i, as.character(bestJGene)], ".rda") 
     if (nrow(shrep) != 0) {
-      save(shrep, file = file.path(folder, fname))
+      save(shrep, file = fname)
     }
   }
   if (length(list.files(folder)) == 0) {
@@ -128,7 +131,7 @@ make_rda_folder <- function(DTlist, folder = "", prefix = "",
 }
 
 compute_pgen_rda_folder<-function(folder, prefix = "", iter = 50, cores = 8, 
-                                  nrec = 5e5, silent = T) {
+                                  nrec = 5e5, silent = T, overwrite = F) {
   fnames <- list.files(folder, full.names = T)
   if (length(fnames) == 0) {
     warning(sprintf('No files in %s', folder))
@@ -145,8 +148,11 @@ compute_pgen_rda_folder<-function(folder, prefix = "", iter = 50, cores = 8,
     #test if present
     if (VJlist[i,1] %in% segments$TRBV$V.alleles & 
         VJlist[i,2] %in% segments$TRBJ$J.alleles) {
-      if(!silent) print(fnames_s[i])
-      if(!silent) print(format(Sys.time(), "%a %b %d %X %Y"))
+      o_fn <- file.path(folder, 
+                        paste0("res_", prefix, fnames_s[i], ".rda"))
+      if (file.exists(o_fn) && !overwrite) next
+      if (!silent) print(fnames_s[i])
+      if (!silent) print(format(Sys.time(), "%a %b %d %X %Y"))
 
       load(fnames[i])
       res <- data.frame()
@@ -155,8 +161,7 @@ compute_pgen_rda_folder<-function(folder, prefix = "", iter = 50, cores = 8,
                                 nrec = nrec, V = VJlist[i,1], J = VJlist[i,2])
       }
       if (!silent) print("all iterations done")
-      save(res, file = paste0(folder, "/", "res_", prefix, 
-                              fnames_s[i], ".rda", collapse = ""))
+      save(res, file = o_fn)
       if (!silent) print(format(Sys.time(), "%a %b %d %X %Y"))
       if (!silent) print("result saved")
       rm(res)
